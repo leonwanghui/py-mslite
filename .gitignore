@@ -130,3 +130,9 @@ dmypy.json
 
 .vscode/
 .idea/
+
+**/*.ckpt
+**/*.mindir
+**/*.ms
+**/*.jpg
+**/*.png
