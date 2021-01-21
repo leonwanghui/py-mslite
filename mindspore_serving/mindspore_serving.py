@@ -16,33 +16,52 @@ import os
 import sys
 import json
 import numpy as np
-from PIL import Image
+import mindspore
 from mindspore import Tensor
 from mindspore.train.serialization import load_checkpoint
 
-from vision import transform as v_transfrom
+from vision import preprocess as v_preprocess
 from model import lenet5, resnet50
 
-def predict(json_data, model_name="lenet5", dataset_name="mnist"):
-    # check if dataset_name is valid
-    if dataset_name not in ("mnist", "cifar10", "imagenet2012"):
-        print("Currently dataset_name only supports `mnist`, `cifar10` and `imagenet2012`!")
-    # get the transformed input data
-    input = v_transfrom(json_data, dataset_name=dataset_name)
 
-    # check if model_name is valid
-    if model_name not in ("lenet5, resnet50"):
-        print("Currently model_name only supports `lenet5` and `resnet50`!")
-    net = lenet5() if model_name == "lenet5" else resnet50(class_num=9)
+def predict(instance, name="lenet5", model_format="ckpt", class_num=10):
+    # check if servable name is valid
+    if name not in ("lenet5", "resnet50"):
+        err_msg = "Currently model_name only supports `lenet5` and `resnet50`!"
+        return {"status": 1, "err_msg": err_msg}
+    input = np.array(json.loads(instance['data']), dtype='uint8')
+    net = lenet5(class_num=class_num) if name == "lenet5" else resnet50(class_num=class_num)
+    input = input.reshape((1, 1, 28, 28)) if name == "lenet5" else input.reshape((1, 3, 224, 224))
+
+    # check if model_format is valid
+    if model_format not in ("ckpt"):
+        err_msg = "Currently model_format only supports `ckpt`!"
+        return {"status": 1, "err_msg": err_msg}
     # load checkpoint
-    ckpt_path = os.path.join("ckpt", model_name+".ckpt")
+    ckpt_path = os.path.join("ckpt", name+"."+model_format)
+    if not os.path.isfile(ckpt_path):
+        err_msg = "The model path "+ckpt_path+" not exist!"
+        return {"status": 1, "err_msg": err_msg}
     load_checkpoint(ckpt_path, net=net)
 
     # execute the network to perform model prediction
-    return net(Tensor(input))
+    data = net(Tensor(input, mindspore.float32)).asnumpy()
+    return {"status": 0, "instance": {"shape": data.shape, "data": json.dumps(data.tolist())}}
 
 if __name__ == "__main__":
-    img = Image.open(sys.argv[1])
-    data = json.dumps(np.array(img).tolist())
+    with open('request.json', 'r') as f:
+        request = json.load(f)
 
-    print(predict(data, model_name="resnet50", dataset_name="imagenet2012"))
+    instance = request['instance']
+    servable = request['servable']
+    model = servable['model']
+    img = v_preprocess(sys.argv[1], sys.argv[2])
+    instance['data'] = json.dumps(img.tolist())
+
+    res = predict(instance, name=servable['name'],
+                            model_format=model['format'],
+                            class_num=model['class_num'])
+    if res['status'] != 0:
+        print(res['err_msg'])
+    else:
+        print(res['instance'])

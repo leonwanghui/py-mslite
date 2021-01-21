@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+import os
+import sys
 import cv2
-import json
 import numpy as np
 from PIL import Image
 
@@ -43,7 +44,6 @@ def _data_preprocess_cifar10(img_data):
     std = [0.2023 * 255, 0.1994 * 255, 0.2010 * 255]
     img = _normalize(img.astype(np.float32), np.asarray(mean), np.asarray(std))
     img = img.transpose(2, 0, 1)
-    img = img.reshape((1, 3, 224, 224))
 
     return img
 
@@ -56,7 +56,6 @@ def _data_preprocess_imagenet2012(img_data):
     std = [0.229 * 255, 0.224 * 255, 0.225 * 255]
     img = _normalize(img.astype(np.float32), np.asarray(mean), np.asarray(std))
     img = img.transpose(2, 0, 1)
-    img = img.reshape((1, 3, 224, 224))
 
     return img
 
@@ -65,13 +64,20 @@ def _data_preprocess_mnist(img_data):
     img = cv2.cvtColor(img_data, cv2.COLOR_RGB2GRAY)
     img = cv2.resize(img, (32, 32))
     img = _crop_center(img, 28, 28)
-    img = img.reshape((1, 1, 28, 28))
 
     return img
 
 
-def transform(json_data, dataset_name="mnist"):
-    img = Image.fromarray(np.array(json.loads(json_data), dtype='uint8'))
+def preprocess(img_path, dataset_name="mnist"):
+    # check if dataset_name and img_path are valid
+    if dataset_name not in ("mnist", "cifar10", "imagenet2012"):
+        print("Currently dataset_name only supports `mnist`, `cifar10` and `imagenet2012`!")
+        sys.exit(0)
+    if not os.path.isfile(img_path):
+        print("The image path "+img_path+" not exist!")
+        sys.exit(0)
+
+    img = Image.open(img_path)
     img_data = np.array(img)
     if dataset_name == "mnist":
         return _data_preprocess_mnist(img_data)
