@@ -1,10 +1,6 @@
 {
     "instance": {
-        "shape": [
-            3,
-            224,
-            224
-        ],
+        "shape": [],
         "data": ""
     },
     "servable": {

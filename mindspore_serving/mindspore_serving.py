@@ -13,14 +13,12 @@
 # limitations under the License.
 # ============================================================================
 import os
-import sys
 import json
 import numpy as np
 import mindspore
 from mindspore import Tensor
 from mindspore.train.serialization import load_checkpoint
 
-from vision import preprocess as v_preprocess
 from model import lenet5, resnet50
 
 
@@ -47,21 +45,3 @@ def predict(instance, name="lenet5", model_format="ckpt", class_num=10):
     # execute the network to perform model prediction
     data = net(Tensor(input, mindspore.float32)).asnumpy()
     return {"status": 0, "instance": {"shape": data.shape, "data": json.dumps(data.tolist())}}
-
-if __name__ == "__main__":
-    with open('request.json', 'r') as f:
-        request = json.load(f)
-
-    instance = request['instance']
-    servable = request['servable']
-    model = servable['model']
-    img = v_preprocess(sys.argv[1], sys.argv[2])
-    instance['data'] = json.dumps(img.tolist())
-
-    res = predict(instance, name=servable['name'],
-                            model_format=model['format'],
-                            class_num=model['class_num'])
-    if res['status'] != 0:
-        print(res['err_msg'])
-    else:
-        print(res['instance'])
